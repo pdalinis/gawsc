@@ -116,8 +116,8 @@ func ToString() string {
 		i++
 	}
 
-	for k, v := range asgTags {
-		lines[i] = fmt.Sprintf("asgTags:%s:%s", k, v)
+	for k, v := range cftOutputs {
+		lines[i] = fmt.Sprintf("cftOutputs:%s:%s", k, v)
 		i++
 	}
 
