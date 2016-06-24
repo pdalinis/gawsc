@@ -107,17 +107,17 @@ func ToString() string {
 
 	i := 0
 	for k, v := range ec2Tags {
-		lines[i] = fmt.Sprintf("ec2Tags:%s%s", k, v)
+		lines[i] = fmt.Sprintf("ec2Tags:%s:%s", k, v)
 		i++
 	}
 
 	for k, v := range asgTags {
-		lines[i] = fmt.Sprintf("asgTags:%s%s", k, v)
+		lines[i] = fmt.Sprintf("asgTags:%s:%s", k, v)
 		i++
 	}
 
 	for k, v := range asgTags {
-		lines[i] = fmt.Sprintf("asgTags:%s%s", k, v)
+		lines[i] = fmt.Sprintf("asgTags:%s:%s", k, v)
 		i++
 	}
 
@@ -153,7 +153,7 @@ func asgGetTags(resourceID string) (Tag, error) {
 	input := &autoscaling.DescribeTagsInput{
 		Filters: []*autoscaling.Filter{
 			&autoscaling.Filter{
-				Name:   aws.String("resource-id"),
+				Name:   aws.String("auto-scaling-group"),
 				Values: []*string{aws.String(resourceID)},
 			},
 		},
