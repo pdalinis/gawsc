@@ -17,7 +17,7 @@ import (
 type Tag map[string]string
 
 var (
-	inAWS      = false
+	InAWS      = false
 	awsConfig  *aws.Config
 	awsSession = session.New()
 	instanceID string
@@ -31,9 +31,9 @@ var (
 func init() {
 	client := ec2metadata.New(awsSession)
 	// is in aws?
-	inAWS = client.Available()
+	InAWS = client.Available()
 
-	if inAWS {
+	if InAWS {
 		// get region
 		Region, _ = client.Region()
 		awsConfig = aws.NewConfig().WithRegion(Region)
@@ -45,7 +45,7 @@ func init() {
 
 // Load reads in the configuration values from AWS
 func Load() error {
-	if !inAWS {
+	if !InAWS {
 		return errors.New("Cannot load configuration values because we are running inside AWS")
 	}
 
