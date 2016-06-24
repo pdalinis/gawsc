@@ -2,20 +2,21 @@ package gawsc
 
 import (
 	"errors"
-	"fmt"
-	"io/ioutil"
-	"net/http"
 	"strings"
-	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/autoscaling"
+	"github.com/aws/aws-sdk-go/service/cloudformation"
+	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
+// Tag is the base structure for a configuration value
 type Tag map[string]string
 
 type gawsConfig struct {
-	instanceId *string
+	instanceID *string
 	awsConfig  *aws.Config
 	session    *session.Session
 	ec2        Tag
@@ -23,98 +24,126 @@ type gawsConfig struct {
 	cft        Tag
 }
 
-func New(awsConfig *aws.Config, instanceId *string) (*gawsConfig, error) {
-	config := &gawsConfig{
-		instanceId: instanceId,
-		awsConfig:  awsConfig,
+var (
+	inAWS      = false
+	awsConfig  *aws.Config
+	awsSession = session.New()
+	instanceID string
+	ec2Tags    Tag
+	asgTags    Tag
+	cftOutputs Tag
+)
+
+func init() {
+	client := ec2metadata.New(awsSession)
+	// is in aws?
+	inAWS = client.Available()
+
+	if inAWS {
+		// get region
+		region, _ := client.Region()
+		awsConfig = aws.NewConfig().WithRegion(region)
+		// get instance id
+
+		instanceID, _ = client.GetDynamicData("instance-id")
 	}
-
-	if instanceId == nil {
-		if id, err := GetInstanceID(); err != nil {
-			return nil, err
-		} else {
-			config.instanceId = &id
-		}
-	}
-
-	err := config.Load()
-
-	return config, err
 }
 
-//Loads key/values from various sources.
-func (c *gawsConfig) Load() error {
-	c.ec2, _ = c.Ec2GetTags(*c.instanceId)
+func Load() error {
+	//TODO: handle errors
+	ec2Tags, _ = ec2GetTags(instanceID)
 
-	if asg_name, err := c.Get("aws:autoscaling:groupName"); err == nil {
-		c.asg, _ = c.AsgGetTags(asg_name)
+	if asg_name, err := Get("aws:autoscaling:groupName"); err == nil {
+		asgTags, _ = asgGetTags(asg_name)
 	}
 
-	if stack_name, err := c.Get("aws:cloudformation:stack-name"); err == nil {
-		c.cft, _ = c.CftGetOutputs(stack_name)
+	if stack_name, err := Get("aws:cloudformation:stack-name"); err == nil {
+		cftOutputs, _ = cftGetOutputs(stack_name)
 	}
-
 	return nil
 }
 
-//Gets the value of the specified Key. This first looks on EC2 tags, then Autoscaling Tags, then Cloudformation Output. If no value was found, an error is returned.
-func (c *gawsConfig) Get(key string) (string, error) {
-	if value, ok := c.ec2[key]; ok {
+func Get(key string) (string, error) {
+	if value, ok := ec2Tags[key]; ok {
 		return value, nil
 	}
 
-	if value, ok := c.asg[key]; ok {
+	if value, ok := asgTags[key]; ok {
 		return value, nil
 	}
 
-	if value, ok := c.cft[key]; ok {
+	if value, ok := cftOutputs[key]; ok {
 		return value, nil
 	}
 
 	return "", errors.New("Could not find key " + key)
 }
 
-func (c *gawsConfig) ToString() string {
-	lines := make([]string, len(c.ec2)+len(c.asg)+len(c.cft))
-
-	appendLines := func(name string, tag Tag) {
-		for i := range tag {
-			lines = append(lines, fmt.Sprintf("%s:%s:%s", name, i, c.ec2[i]))
-		}
-	}
-
-	appendLines("EC2", c.ec2)
-	appendLines("ASG", c.asg)
-	appendLines("CFT", c.cft)
+func ToString() string {
+	lines := make([]string, len(ec2Tags)+len(asgTags)+len(cftOutputs))
 
 	return strings.Join(lines, "\n")
 }
 
-//Gets the Id of the instance that this code is running on.
-func GetInstanceID() (string, error) {
-	url := "http://169.254.169.254/latest/meta-data/instance-id"
-	req, _ := http.NewRequest("GET", url, nil)
-	client := http.Client{
-		Timeout: time.Millisecond * 100,
+//TODO: Cleanup code duplication
+
+func ec2GetTags(resourceId string) (Tag, error) {
+	svc := ec2.New(awsSession, awsConfig)
+	input := &ec2.DescribeTagsInput{
+		Filters: []*ec2.Filter{
+			&ec2.Filter{
+				Name:   aws.String("resource-id"),
+				Values: []*string{aws.String(resourceId)},
+			},
+		},
+	}
+	output, err := svc.DescribeTags(input)
+
+	tags := make(Tag, len(output.Tags))
+
+	//TODO error if > 1 returned
+	for _, tag := range output.Tags {
+		tags[*tag.Key] = *tag.Value
 	}
 
-	resp, err := client.Do(req)
+	return tags, err
+}
 
-	if err != nil {
-		return "", err
+func asgGetTags(resourceId string) (Tag, error) {
+	svc := autoscaling.New(awsSession, awsConfig)
+	input := &autoscaling.DescribeTagsInput{
+		Filters: []*autoscaling.Filter{
+			&autoscaling.Filter{
+				Name:   aws.String("resource-id"),
+				Values: []*string{aws.String(resourceId)},
+			},
+		},
 	}
-	defer resp.Body.Close()
+	output, err := svc.DescribeTags(input)
 
-	if resp.StatusCode != 200 {
-		err = fmt.Errorf("Code %d returned for url %s", resp.StatusCode, url)
-		return "", err
+	tags := make(Tag, len(output.Tags))
+
+	//TODO error if > 1 returned
+	for _, tag := range output.Tags {
+		tags[*tag.Key] = *tag.Value
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	return tags, err
+}
 
-	if err != nil {
-		return "", err
+func cftGetOutputs(resourceId string) (Tag, error) {
+	svc := cloudformation.New(awsSession, awsConfig)
+	input := &cloudformation.DescribeStacksInput{
+		StackName: aws.String(resourceId),
+	}
+	output, err := svc.DescribeStacks(input)
+
+	tags := make(Tag, len(output.Stacks[0].Outputs))
+
+	//TODO error if > 1 returned
+	for _, tag := range output.Stacks[0].Outputs {
+		tags[*tag.OutputKey] = *tag.OutputValue
 	}
 
-	return string(body), nil
+	return tags, err
 }
