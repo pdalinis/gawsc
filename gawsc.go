@@ -42,6 +42,7 @@ func init() {
 	Load()
 }
 
+// Load reads in the configuration values from AWS
 func Load() error {
 	if !inAWS {
 		return errors.New("Cannot load configuration values because we are running inside AWS")
@@ -50,16 +51,17 @@ func Load() error {
 	//TODO: handle errors
 	ec2Tags, _ = ec2GetTags(instanceID)
 
-	if asg_name, err := Get("aws:autoscaling:groupName"); err == nil {
-		asgTags, _ = asgGetTags(asg_name)
+	if asgName, err := Get("aws:autoscaling:groupName"); err == nil {
+		asgTags, _ = asgGetTags(asgName)
 	}
 
-	if stack_name, err := Get("aws:cloudformation:stack-name"); err == nil {
-		cftOutputs, _ = cftGetOutputs(stack_name)
+	if stackName, err := Get("aws:cloudformation:stack-name"); err == nil {
+		cftOutputs, _ = cftGetOutputs(stackName)
 	}
 	return nil
 }
 
+// Get a configuration value
 func Get(key string) (string, error) {
 	if value, ok := ec2Tags[key]; ok {
 		return value, nil
@@ -76,6 +78,7 @@ func Get(key string) (string, error) {
 	return "", fmt.Errorf("Could not find key %s", key)
 }
 
+// ToString outputs all configuration values for debugging purposes
 func ToString() string {
 	lines := make([]string, len(ec2Tags)+len(asgTags)+len(cftOutputs))
 
@@ -100,13 +103,13 @@ func ToString() string {
 
 //TODO: Cleanup code duplication
 
-func ec2GetTags(resourceId string) (Tag, error) {
+func ec2GetTags(resourceID string) (Tag, error) {
 	svc := ec2.New(awsSession, awsConfig)
 	input := &ec2.DescribeTagsInput{
 		Filters: []*ec2.Filter{
 			&ec2.Filter{
 				Name:   aws.String("resource-id"),
-				Values: []*string{aws.String(resourceId)},
+				Values: []*string{aws.String(resourceID)},
 			},
 		},
 	}
@@ -122,13 +125,13 @@ func ec2GetTags(resourceId string) (Tag, error) {
 	return tags, err
 }
 
-func asgGetTags(resourceId string) (Tag, error) {
+func asgGetTags(resourceID string) (Tag, error) {
 	svc := autoscaling.New(awsSession, awsConfig)
 	input := &autoscaling.DescribeTagsInput{
 		Filters: []*autoscaling.Filter{
 			&autoscaling.Filter{
 				Name:   aws.String("resource-id"),
-				Values: []*string{aws.String(resourceId)},
+				Values: []*string{aws.String(resourceID)},
 			},
 		},
 	}
@@ -144,10 +147,10 @@ func asgGetTags(resourceId string) (Tag, error) {
 	return tags, err
 }
 
-func cftGetOutputs(resourceId string) (Tag, error) {
+func cftGetOutputs(resourceID string) (Tag, error) {
 	svc := cloudformation.New(awsSession, awsConfig)
 	input := &cloudformation.DescribeStacksInput{
-		StackName: aws.String(resourceId),
+		StackName: aws.String(resourceID),
 	}
 	output, err := svc.DescribeStacks(input)
 
