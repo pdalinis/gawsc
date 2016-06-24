@@ -24,6 +24,8 @@ var (
 	ec2Tags    Tag
 	asgTags    Tag
 	cftOutputs Tag
+	// Region will contain the AWS region if this code is running in AWS
+	Region string
 )
 
 func init() {
@@ -33,10 +35,9 @@ func init() {
 
 	if inAWS {
 		// get region
-		region, _ := client.Region()
-		awsConfig = aws.NewConfig().WithRegion(region)
+		Region, _ = client.Region()
+		awsConfig = aws.NewConfig().WithRegion(Region)
 		// get instance id
-
 		instanceID, _ = client.GetDynamicData("instance-id")
 	}
 	Load()
@@ -76,6 +77,15 @@ func Get(key string) (string, error) {
 	}
 
 	return "", fmt.Errorf("Could not find key %s", key)
+}
+
+// GetDefault returns the |defaultValue| if the key is not found.
+func GetDefault(key, defaultValue string) (string, error) {
+	value, err := Get(key)
+	if err != nil {
+		return defaultValue, err
+	}
+	return value, err
 }
 
 // ToString outputs all configuration values for debugging purposes
