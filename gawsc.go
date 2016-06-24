@@ -2,6 +2,7 @@ package gawsc
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -14,15 +15,6 @@ import (
 
 // Tag is the base structure for a configuration value
 type Tag map[string]string
-
-type gawsConfig struct {
-	instanceID *string
-	awsConfig  *aws.Config
-	session    *session.Session
-	ec2        Tag
-	asg        Tag
-	cft        Tag
-}
 
 var (
 	inAWS      = false
@@ -47,9 +39,14 @@ func init() {
 
 		instanceID, _ = client.GetDynamicData("instance-id")
 	}
+	Load()
 }
 
 func Load() error {
+	if !inAWS {
+		return errors.New("Cannot load configuration values because we are running inside AWS")
+	}
+
 	//TODO: handle errors
 	ec2Tags, _ = ec2GetTags(instanceID)
 
@@ -76,11 +73,27 @@ func Get(key string) (string, error) {
 		return value, nil
 	}
 
-	return "", errors.New("Could not find key " + key)
+	return "", fmt.Errorf("Could not find key %s", key)
 }
 
 func ToString() string {
 	lines := make([]string, len(ec2Tags)+len(asgTags)+len(cftOutputs))
+
+	i := 0
+	for k, v := range ec2Tags {
+		lines[i] = fmt.Sprintf("ec2Tags:%s%s", k, v)
+		i++
+	}
+
+	for k, v := range asgTags {
+		lines[i] = fmt.Sprintf("asgTags:%s%s", k, v)
+		i++
+	}
+
+	for k, v := range asgTags {
+		lines[i] = fmt.Sprintf("asgTags:%s%s", k, v)
+		i++
+	}
 
 	return strings.Join(lines, "\n")
 }
