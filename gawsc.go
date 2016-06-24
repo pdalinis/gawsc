@@ -21,7 +21,8 @@ var (
 	InAWS      = false
 	awsConfig  *aws.Config
 	awsSession = session.New()
-	instanceID string
+	// InstanceID is the AWS EC2 instance ID
+	InstanceID string
 	ec2Tags    Tag
 	asgTags    Tag
 	cftOutputs Tag
@@ -41,7 +42,7 @@ func init() {
 		Region, _ = client.Region()
 		awsConfig = aws.NewConfig().WithRegion(Region)
 		// get instance id
-		instanceID, _ = client.GetDynamicData("instance-id")
+		InstanceID, _ = client.GetMetadata("instance-id")
 	}
 	LoadError = Load()
 }
@@ -53,7 +54,7 @@ func init() {
     }
 
     var err error
-    ec2Tags, err = ec2GetTags(instanceID)
+    ec2Tags, err = ec2GetTags(InstanceID)
     if err != nil {
       return err
     }
