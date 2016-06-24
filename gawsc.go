@@ -27,6 +27,8 @@ var (
 	cftOutputs Tag
 	// Region will contain the AWS region if this code is running in AWS
 	Region string
+	// LoadError contains any errors that were encountered during init
+	LoadError error
 )
 
 func init() {
@@ -41,7 +43,7 @@ func init() {
 		// get instance id
 		instanceID, _ = client.GetDynamicData("instance-id")
 	}
-	Load()
+	LoadError = Load()
 }
 
   // Load reads in the configuration values from AWS
