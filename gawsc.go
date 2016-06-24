@@ -17,6 +17,7 @@ import (
 type Tag map[string]string
 
 var (
+	// InAWS will be true if this code is running in AWS
 	InAWS      = false
 	awsConfig  *aws.Config
 	awsSession = session.New()
@@ -43,24 +44,33 @@ func init() {
 	Load()
 }
 
-// Load reads in the configuration values from AWS
-func Load() error {
-	if !InAWS {
-		return errors.New("Cannot load configuration values because we are running inside AWS")
-	}
+  // Load reads in the configuration values from AWS
+  func Load() error {
+    if !InAWS {
+      return errors.New("Cannot load configuration values because we are running inside AWS")
+    }
 
-	//TODO: handle errors
-	ec2Tags, _ = ec2GetTags(instanceID)
+    var err error
+    ec2Tags, err = ec2GetTags(instanceID)
+    if err != nil {
+      return err
+    }
 
-	if asgName, err := Get("aws:autoscaling:groupName"); err == nil {
-		asgTags, _ = asgGetTags(asgName)
-	}
+    if asgName, err := Get("aws:autoscaling:groupName"); err == nil {
+      asgTags, err = asgGetTags(asgName)
+      if err != nil {
+        return err
+      }
+    }
 
-	if stackName, err := Get("aws:cloudformation:stack-name"); err == nil {
-		cftOutputs, _ = cftGetOutputs(stackName)
-	}
-	return nil
-}
+    if stackName, err := Get("aws:cloudformation:stack-name"); err == nil {
+      cftOutputs, err = cftGetOutputs(stackName)
+      if err != nil {
+        return err
+      }
+    }
+    return nil
+  }
 
 // Get a configuration value
 func Get(key string) (string, error) {
