@@ -1,0 +1,128 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+  "Description"              : "Infrastructure to test gawsc.",
+  "Parameters"               : {
+    "VPC" : {
+    },
+    "AvailabilityZones" : {
+      "Default"     : "us-east-1a" ,
+      "Description" : "Comma delimited list of availability zones where the EC2 instance will be created in.",
+      "Type"        : "CommaDelimitedList"
+    },
+    "KeyName"      : {
+      "Description" : "Name of an existing SSH KeyPair to enable SSH access to the instances",
+      "Type"        : "String",
+      "MinLength"   : "1",
+      "MaxLength"   : "255"
+    },
+    "ImageId"      : {
+      "Description" : "Amazon linux AMI ID",
+      "Type"        : "String",
+      "Default"     : "ami-1ecae776"
+    }
+  },
+  "Resources" : {
+    "Role": {
+      "Type" : "AWS::IAM::Role",
+      "Properties" : {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "ec2.amazonaws.com"
+                ]
+              },
+              "Action": [ "sts:AssumeRole" ]
+            }]
+        },
+        "Path": "/",
+        "Policies" : [
+          {
+            "PolicyName": "gawsc",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [ "autoscaling:DescribeTags", "ec2:DescribeTags", "cloudformation:DescribeStacks" ],
+                  "Resource": [
+                    "*"
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "RoleProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "Path": "/",
+        "Roles": [
+          { "Ref": "Role" }
+        ]
+      }
+    },
+    "AutoScalingGroup" : {
+      "Type" : "AWS::AutoScaling::AutoScalingGroup",
+      "Properties" : {
+        "AvailabilityZones" : { "Ref" : "AvailabilityZones" },
+        "LaunchConfigurationName" : { "Ref" : "LaunchConfiguration" },
+        "MinSize" : 1,
+        "MaxSize" : 2,
+        "Tags" : [
+          {
+            "Key" : "Name",
+            "Value" : "gawsc",
+            "PropagateAtLaunch" : "true"
+          },
+          {
+            "Key" : "Environment",
+            "Value" : "Production",
+            "PropagateAtLaunch" : "true"
+          },
+          {
+            "Key" : "ASG_Only",
+            "Value" : "ASG_Value",
+            "PropagateAtLaunch" : "false"
+          }
+        ]
+      }
+    },
+    "LaunchConfiguration" : {
+      "Type" : "AWS::AutoScaling::LaunchConfiguration",
+      "Properties" : {
+        "KeyName" : { "Ref" : "KeyName" },
+        "ImageId" : { "Ref" : "ImageId" },
+        "InstanceType" : "t2.micro",
+        "IamInstanceProfile" : {"Ref" : "RoleProfile" },
+        "UserData": {
+          "Fn::Base64" : {
+            "Fn::Join" : [
+              "",
+              [
+                "#!/bin/bash\n",
+                "cd ~\n",
+                "mkdir ~/tmp\n"
+              ]
+            ]
+          }
+        }
+      }
+    }
+   },
+  "Outputs" : {
+    "AutoScalingGroupName" : {
+      "Description" : "The name of the AutoScalingGroup",
+      "Value" : { "Ref" : "AutoScalingGroup" }
+    },
+    "Role" : {
+      "Description" : "The ARN of the service role",
+      "Value" : { "Fn::GetAtt" : ["Role", "Arn"] }
+    }
+  }
+}
