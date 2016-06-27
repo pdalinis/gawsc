@@ -30,6 +30,8 @@ var (
 	Region string
 	// LoadError contains any errors that were encountered during init
 	LoadError error
+	// AZ will contain the AWS AvailabilityZone if this code is running in AWS
+	AZ string
 )
 
 func init() {
@@ -43,6 +45,7 @@ func init() {
 		awsConfig = aws.NewConfig().WithRegion(Region)
 		// get instance id
 		InstanceID, _ = client.GetMetadata("instance-id")
+		AZ, _ = client.GetMetadata("placement/availability-zone")
 	}
 	LoadError = Load()
 }
