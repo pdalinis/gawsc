@@ -53,7 +53,7 @@ func init() {
   // Load reads in the configuration values from AWS
   func Load() error {
     if !InAWS {
-      return errors.New("Cannot load configuration values because we are running inside AWS")
+      return errors.New("Cannot load configuration values - not running inside AWS")
     }
 
     var err error
