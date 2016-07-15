@@ -50,33 +50,33 @@ func init() {
 	LoadError = Load()
 }
 
-  // Load reads in the configuration values from AWS
-  func Load() error {
-    if !InAWS {
-      return errors.New("Cannot load configuration values - not running inside AWS")
-    }
+// Load reads in the configuration values from AWS
+func Load() error {
+	if !InAWS {
+		return errors.New("Cannot load configuration values - not running inside AWS")
+	}
 
-    var err error
-    ec2Tags, err = ec2GetTags(InstanceID)
-    if err != nil {
-      return err
-    }
+	var err error
+	ec2Tags, err = ec2GetTags(InstanceID)
+	if err != nil {
+		return err
+	}
 
-    if asgName, err := Get("aws:autoscaling:groupName"); err == nil {
-      asgTags, err = asgGetTags(asgName)
-      if err != nil {
-        return err
-      }
-    }
+	if asgName, err := Get("aws:autoscaling:groupName"); err == nil {
+		asgTags, err = asgGetTags(asgName)
+		if err != nil {
+			return err
+		}
+	}
 
-    if stackName, err := Get("aws:cloudformation:stack-name"); err == nil {
-      cftOutputs, err = cftGetOutputs(stackName)
-      if err != nil {
-        return err
-      }
-    }
-    return nil
-  }
+	if stackName, err := Get("aws:cloudformation:stack-name"); err == nil {
+		cftOutputs, err = cftGetOutputs(stackName)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 // Get a configuration value
 func Get(key string) (string, error) {
@@ -179,6 +179,10 @@ func cftGetOutputs(resourceID string) (Tag, error) {
 		StackName: aws.String(resourceID),
 	}
 	output, err := svc.DescribeStacks(input)
+
+	if len(output.Stacks) == 0 {
+		return make(Tag), nil
+	}
 
 	tags := make(Tag, len(output.Stacks[0].Outputs))
 
